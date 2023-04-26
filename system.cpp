@@ -1,6 +1,7 @@
 #include "sqlite/sqlite3.h"
 #include <iostream>
 #include <string> 
+#include <conio.h>
 
 
 using namespace std;
@@ -13,132 +14,138 @@ using namespace std;
    int rc;
 
 
-// Pre - Definition of Functions 
+string input(string text);
+void create_user();
+void login_user();
 
-void create_account();
-void login_account();
-
-
-
-// Function Pre-declaratation
-
+void insert_course();
 
 
 int main(){
     sqlite3_open("database.db", &db);
-    //create_account();
-
-
-    login_account();
-
-    
+    insert_course();
 }
 
-
-// Firstname, Lastname, Username, Password, Age, Address, Program, Section
-
-// Function definition
-
-void create_account(){
-    string firstname, lastname, username, password, address, program, section;
-    int age;
-
-    cout << "Student Console Portal \n\nAccount Registration\n\n\n";
-    
+void create_user(){
+    string username, password, confirm_password, email, role;
 
     cout << "Username : ";
     cin >> username;
 
-    cout << "Password : ";
-    cin >> password;
+    cout << "Email: ";
+    cin >> email;
+    password = input("Password: ");
+    confirm_password = input("Confirm Password: ");
 
-    cin.ignore();
+    // TODO 
+    role = "student";
 
-    cout << "Firstname : ";
-    getline(cin, firstname);
-
-    cout << "Lastname : ";
-    getline(cin, lastname);
-
-    cout << "Address : ";
-    cin >> address;
-
-    cout << "Program : ";
-    cin >> program;
-
-    cout << "Section : ";
-    cin >> section;
-
-    cout << "Age : ";
-    cin >> age;
+    if (password == confirm_password){
+        string query = "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?);";
+        // string query = "INSERT INTO users (username, email ,password, role)"
 
 
-    string sql = "INSERT INTO account (username, password, firstname, lastname, address, program, section, age) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-    sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);
+        // ? = wildcard or placeholder 
+
+
+       
+
+
+
+
+
+        sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
+
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 2, email.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 3, password.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 4, role.c_str(), -1, SQLITE_STATIC);
+
+
+
+        // string query = "INSERT INTO users (username, email, password, role) VALUES ("admin", "admin@sdca.edu.ph", "passsword", "sudent")"
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+
+        cout << "User Created Successfully" << endl << endl;
+
     
-    // Binding the user input to the sql statement 
 
-    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, password.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 3, firstname.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, lastname.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 5, address.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 6, program.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 7, section.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 8, age);
+    }
+    else{
+        cout << "Password Doesn't Match" << endl;
+    }
 
-    // Everything will get better, just keep moving forward, someday somehow you'll be enlightened - W.M.
+    
+
+}
+
+
+string input(string text){
+    char key = 0;
+    string password = "";//"ba"
+    cout << text;
+    while (key != 13)// while the key is not Enter or 13
+    {
+        key = getch();
+        //
+        
+        if (key != 13 && key != 8 && key != 32){
+            cout << '*';
+            password.push_back(key);
+        }
+
+
+       
+    }
+    cout << endl;
+    return password;
+}
+
+
+
+void insert_course(){
+
+    string name, description, start_date, end_date;
+    int professor_id;
+
+
+    cout << "Name: ";
+    cin >> name;
+
+    cout << "Description: ";
+    cin >> description;
+
+    cout << "Start Date (YYYY-MM-DD): ";
+    cin >> start_date;
+
+    cout << "End Date (YYYY-MM-DD): ";
+    cin >> end_date;
+
+    cout << "Instructor ID: ";
+    cin >> professor_id;
+
+
+    string sql = "INSERT INTO courses (name, description, start_date, end_date, instructor_id) VALUES (?, ?, ?, ?, ?)";
+
+    sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);
+
+    // Prepareation > Binding of Placeholder 
+
+
+    sqlite3_bind_text(stmt, 1, name.c_str(), -1,  SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, description.c_str(), -1,  SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, start_date.c_str(), -1,  SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 4, end_date.c_str(), -1,  SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 5, professor_id);
 
     sqlite3_step(stmt);
     sqlite3_finalize(stmt);
-
-
-    cout << endl << endl << "Account Created Successfully" << endl;
-
-
-
-}
-
-
-
-// The darkness of this IDE just resonates with the pain 
-
-// ... and I'm making the comments my diary entry lmao.
-
-void login_account(){
-    
-    cout << "Student Console Portal \n\nAccount Login\n\n\n";
-
-
-    string username, password;
-
-    cout << "Username : ";
-    cin >> username;
-
-    cout << "Password : ";
-    cin >> password;
-
-    string sql = "SELECT * FROM account WHERE username = ? AND password = ?";
-    sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);
-    
-    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, password.c_str(), -1, SQLITE_STATIC);
-
-    // Words of encouragement for myself, to see while debugging this shit while in pain.
-
-    int result = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-
-    if (result == SQLITE_ROW){
-        cout << "Successfully login" << endl;
-    }
-    else{
-        cout << "Invalid username/password" <<endl;
-    }
-
-
     
 
-    
+
+
+
+   
 
 }
