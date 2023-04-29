@@ -9,13 +9,13 @@ sqlite3* db;
 
 void inputCourse();
 void createCourse(sqlite3* db, const char* name, const char* description, const char* instructor, const char* start_date, const char* end_date);
-void readCourses(sqlite3* db, const char* filter);
+void readCourses(sqlite3* db,  string username);
 
 void createUser(string username, string email, string password, string role);
 bool login(string username, string password);
 
 int createEnrollment(sqlite3* db, int user_id, int course_id, string enrollment_date);
-int readEnrollment(sqlite3* db, int course_id);
+void read_enrollments(sqlite3* db, const string& username);
 
 int createGrade(sqlite3* db, int user_id, int content_id, int grade_value, string date);
 int readGrade(sqlite3* db, const string& username);
@@ -24,11 +24,45 @@ int readGrade(sqlite3* db, const string& username);
 
 int main(){
    sqlite3_open("database.db", &db);
+
+
+    while(1){
+    string username, password;
+
+    cout << "\n\n\nStudent Learning Management System (Console)" << endl << endl;
+    cout << "Login" <<endl << endl;
     
+    cout << "Username: ";
+    cin >> username;
+
+    cout << "Password: ";
+    cin >> password;
+
+    if (login(username, password)){
+        int option;
+        cout << "Welcome " << username << endl <<"Choose an action: " << endl <<"1. View Courses\n2. View Grades\n\nAction: ";
+        cin >> option;
+
+        switch(option){
+            case 1:
+                read_enrollments(db, username);
+            case 2:
+                break;
+            default:
+                cout << "Invalid Option";
+        }
+    }
+    else{
+        continue;
+    }
+
+    }
+    
+
+
+    
+
 }
-
-
-
 void inputCourse(){
     string name, description, instructor, start_date, end_date;
     
@@ -65,32 +99,34 @@ void createCourse(sqlite3* db, const char* name, const char* description, const 
     }
 }
 
-void readCourses(sqlite3* db, const char* filter = NULL) {
+void readCourses(sqlite3* db, string username) {
     sqlite3_stmt* stmt;
-    int result;
-    const char* tail;
+    string sql = "SELECT courses.name, courses.description, users.username, courses.start_date, courses.end_date "
+                 "FROM enrollments "
+                 "JOIN courses ON enrollments.course_id = courses.id "
+                 "JOIN users ON courses.instructor_id = users.id "
+                 "WHERE enrollments.user_id = (SELECT id FROM users WHERE username = ?)";
 
-    if (filter == NULL) {
-        result = sqlite3_prepare_v2(db, "SELECT * FROM courses;", -1, &stmt, &tail);
-    }
-    else {
-        string sql = "SELECT * FROM courses WHERE name LIKE '%" + string(filter) + "%';";
-        result = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, &tail);
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL) != SQLITE_OK) {
+        cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << endl;
+        return;
     }
 
-    if (result != SQLITE_OK) {
-        cerr << "Error reading courses: " << sqlite3_errmsg(db) << endl;
+    if (sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC) != SQLITE_OK) {
+        cerr << "Failed to bind parameter: " << sqlite3_errmsg(db) << endl;
+        sqlite3_finalize(stmt);
+        return;
     }
-    else {
-        cout << "Courses:" << endl;
-        while (sqlite3_step(stmt) == SQLITE_ROW) {
-            cout << "ID: " << sqlite3_column_int(stmt, 0) << endl;
-            cout << "Name: " << sqlite3_column_text(stmt, 1) << endl;
-            cout << "Description: " << sqlite3_column_text(stmt, 2) << endl;
-            cout << "Instructor: " << sqlite3_column_text(stmt, 3) << endl;
-            cout << "Start Date: " << sqlite3_column_text(stmt, 4) << endl;
-            cout << "End Date: " << sqlite3_column_text(stmt, 5) << endl;
-        }
+
+    cout << "Courses enrolled by " << username << ":" << endl;
+    cout << "-----------------------------------------------" << endl;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        cout << "Name: " << sqlite3_column_text(stmt, 0) << endl;
+        cout << "Description: " << sqlite3_column_text(stmt, 1) << endl;
+        cout << "Instructor: " << sqlite3_column_text(stmt, 2) << endl;
+        cout << "Start Date: " << sqlite3_column_text(stmt, 3) << endl;
+        cout << "End Date: " << sqlite3_column_text(stmt, 4) << endl;
+        cout << "-----------------------------------------------" << endl;
     }
 
     sqlite3_finalize(stmt);
@@ -122,7 +158,7 @@ bool login(string username, string password) {
         cout << "Login successful!" << endl;
         return true;
     } else {
-        cerr << "Error logging in: " << sqlite3_errmsg(db) << endl;
+        cerr << "\n\nIncorrect Username/Password"<< endl;
         return false;
     }
 }
@@ -143,29 +179,44 @@ int create_enrollment(sqlite3* db, int user_id, int course_id, string enrollment
 
     return sqlite3_last_insert_rowid(db);
 }
-int read_enrollments(sqlite3* db, int course_id) {
-    string sql = "SELECT users.username "
-                      "FROM enrollments "
-                      "INNER JOIN users ON enrollments.user_id = users.id "
-                      "WHERE enrollments.course_id = " + to_string(course_id) + ";";
+void read_enrollments(sqlite3* db, const string& username) {
+    string sql = "SELECT enrollments.id, users.username, courses.name, enrollments.enrollment_date "
+                 "FROM enrollments "
+                 "JOIN users ON enrollments.user_id = users.id "
+                 "JOIN courses ON enrollments.course_id = courses.id "
+                 "WHERE users.username = ?";
 
     sqlite3_stmt* stmt;
     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);
 
     if (rc != SQLITE_OK) {
-        cerr << "Error preparing statement: " << sqlite3_errmsg(db) << endl;
-        return -1;
+        cerr << "Failed to execute statement: " << sqlite3_errmsg(db) << endl;
+        return;
     }
 
+    rc = sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+
+    if (rc != SQLITE_OK) {
+        cerr << "Failed to bind parameter: " << sqlite3_errmsg(db) << endl;
+        return;
+    }
+
+    cout << "Enrollments for " << username << ":" << endl;
+
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        cout << "Username: " << sqlite3_column_text(stmt, 0) << endl;
+        int enrollment_id = sqlite3_column_int(stmt, 0);
+        string username = string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        string course_name = string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)));
+        string enrollment_date = string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)));
+
+        cout << "Enrollment ID: " << enrollment_id << endl;
+        cout << "Username: " << username << endl;
+        cout << "Course Name: " << course_name << endl;
+        cout << "Enrollment Date: " << enrollment_date << endl;
     }
 
     sqlite3_finalize(stmt);
-
-    return 0;
 }
-
 int create_grade(sqlite3* db, int user_id, int content_id, int grade_value, string date) {
     string sql = "INSERT INTO grades (user_id, content_id, grade_value, date) VALUES (" +
                         to_string(user_id) + ", " + to_string(content_id) + ", " + 
